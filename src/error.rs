@@ -2,9 +2,11 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("GetDhlSplResponseNotOk (status {status:?}, title {title:?}, detail {detail:?})")]
-    GetDhlSplResponseNotOk {
-        status: String,
+    #[error("MissingCredentials Error: {0}")]
+    MissingCredentials(String),
+    #[error("GetSplResponseNotOk (status {status:?}, title {title:?}, detail {detail:?})")]
+    GetSplResponseNotOk {
+        status: i64,
         title: String,
         detail: String,
     },
