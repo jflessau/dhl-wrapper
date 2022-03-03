@@ -4,8 +4,8 @@ use thiserror::Error;
 pub enum Error {
     #[error("MissingCredentials Error: {0}")]
     MissingCredentials(String),
-    #[error("GetSplResponseNotOk (status {status:?}, title {title:?}, detail {detail:?})")]
-    GetSplResponseNotOk {
+    #[error("ResponseNotOk (status {status:?}, title {title:?}, detail {detail:?})")]
+    ResponseNotOk {
         status: i64,
         title: String,
         detail: String,

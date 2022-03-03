@@ -1,11 +1,69 @@
-use crate::{api::LocationFinderUnified, error::Error as LibError, ApiMode};
+use crate::error::Error as LibError;
 use async_trait::async_trait;
 use chrono::NaiveTime;
 use convert_case::{Case, Casing};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 // API docs: https://developer.dhl.com/api-reference/location-finder#reference-docs-section
+
+pub struct LocationFinderUnifiedApi {
+    api_mode: ApiMode,
+    api_key: String,
+}
+
+pub enum ApiMode {
+    Sandbox,
+    Production,
+}
+
+impl LocationFinderUnifiedApi {
+    pub fn new(api_mode: ApiMode, api_key: String) -> Self {
+        LocationFinderUnifiedApi { api_mode, api_key }
+    }
+
+    pub async fn send<T>(&self, request: T) -> Result<T::Response, LibError>
+    where
+        T: LocationFinderUnifiedRequest,
+        T::Response: DeserializeOwned,
+    {
+        let client = reqwest::Client::new();
+        let res_bytes = client
+            .get(request.url(&self.api_mode)?)
+            .header("DHL-API-Key", &self.api_key)
+            .send()
+            .await?
+            .bytes()
+            .await?;
+
+        if let Ok(v) = serde_json::from_slice::<ResponseNotOk>(&res_bytes) {
+            return Err(LibError::ResponseNotOk {
+                status: v.status,
+                title: v.title,
+                detail: v.detail,
+            });
+        }
+
+        let res = serde_json::from_slice::<T::Response>(&res_bytes)?;
+
+        Ok(res)
+    }
+}
+
+#[async_trait]
+pub trait LocationFinderUnifiedRequest {
+    type Response;
+
+    fn url(&self, api_mode: &ApiMode) -> Result<String, LibError>;
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResponseNotOk {
+    status: i64,
+    title: String,
+    detail: String,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -94,9 +152,8 @@ impl GetSplsByAddressRequest {
 }
 
 #[async_trait]
-impl LocationFinderUnified for GetSplsByAddressRequest {
+impl LocationFinderUnifiedRequest for GetSplsByAddressRequest {
     type Response = GetSplsResponse;
-    type ResponseNotOk = GetSplResponseNotOk;
 
     fn url(&self, api_mode: &ApiMode) -> Result<String, LibError> {
         let base_url = match api_mode {
@@ -107,29 +164,6 @@ impl LocationFinderUnified for GetSplsByAddressRequest {
         let r = format!("{}{}", base_url, serializable_to_url_params(self)?);
 
         Ok(r)
-    }
-
-    async fn send(&self, api_key: &str, api_mode: &ApiMode) -> Result<Self::Response, LibError> {
-        let client = reqwest::Client::new();
-        let res_bytes = client
-            .get(self.url(api_mode)?)
-            .header("DHL-API-Key", api_key)
-            .send()
-            .await?
-            .bytes()
-            .await?;
-
-        if let Ok(v) = serde_json::from_slice::<GetSplResponseNotOk>(&res_bytes) {
-            return Err(LibError::GetSplResponseNotOk {
-                status: v.status,
-                title: v.title,
-                detail: v.detail,
-            });
-        }
-
-        let res = serde_json::from_slice::<GetSplsResponse>(&res_bytes)?;
-
-        Ok(res)
     }
 }
 
@@ -198,9 +232,8 @@ impl GetSplsByGeoRequest {
 }
 
 #[async_trait]
-impl LocationFinderUnified for GetSplsByGeoRequest {
+impl LocationFinderUnifiedRequest for GetSplsByGeoRequest {
     type Response = GetSplsResponse;
-    type ResponseNotOk = GetSplResponseNotOk;
 
     fn url(&self, api_mode: &ApiMode) -> Result<String, LibError> {
         let base_url = match api_mode {
@@ -209,29 +242,6 @@ impl LocationFinderUnified for GetSplsByGeoRequest {
         };
 
         Ok(format!("{}{}", base_url, serializable_to_url_params(self)?))
-    }
-
-    async fn send(&self, api_key: &str, api_mode: &ApiMode) -> Result<Self::Response, LibError> {
-        let client = reqwest::Client::new();
-        let res_bytes = client
-            .get(self.url(api_mode)?)
-            .header("DHL-API-Key", api_key)
-            .send()
-            .await?
-            .bytes()
-            .await?;
-
-        if let Ok(v) = serde_json::from_slice::<GetSplResponseNotOk>(&res_bytes) {
-            return Err(LibError::GetSplResponseNotOk {
-                status: v.status,
-                title: v.title,
-                detail: v.detail,
-            });
-        }
-
-        let res = serde_json::from_slice::<GetSplsResponse>(&res_bytes)?;
-
-        Ok(res)
     }
 }
 
@@ -254,9 +264,8 @@ impl GetSplByKeywordIdRequest {
 }
 
 #[async_trait]
-impl LocationFinderUnified for GetSplByKeywordIdRequest {
+impl LocationFinderUnifiedRequest for GetSplByKeywordIdRequest {
     type Response = GetSplResponse;
-    type ResponseNotOk = GetSplResponseNotOk;
 
     fn url(&self, api_mode: &ApiMode) -> Result<String, LibError> {
         let base_url = match api_mode {
@@ -265,29 +274,6 @@ impl LocationFinderUnified for GetSplByKeywordIdRequest {
         };
 
         Ok(format!("{}{}", base_url, serializable_to_url_params(self)?))
-    }
-
-    async fn send(&self, api_key: &str, api_mode: &ApiMode) -> Result<Self::Response, LibError> {
-        let client = reqwest::Client::new();
-        let res_bytes = client
-            .get(self.url(api_mode)?)
-            .header("DHL-API-Key", api_key)
-            .send()
-            .await?
-            .bytes()
-            .await?;
-
-        if let Ok(v) = serde_json::from_slice::<GetSplResponseNotOk>(&res_bytes) {
-            return Err(LibError::GetSplResponseNotOk {
-                status: v.status,
-                title: v.title,
-                detail: v.detail,
-            });
-        }
-
-        let res = serde_json::from_slice::<GetSplResponse>(&res_bytes)?;
-
-        Ok(res)
     }
 }
 
@@ -304,9 +290,8 @@ impl GetSplByIdRequest {
 }
 
 #[async_trait]
-impl LocationFinderUnified for GetSplByIdRequest {
+impl LocationFinderUnifiedRequest for GetSplByIdRequest {
     type Response = GetSplResponse;
-    type ResponseNotOk = GetSplResponseNotOk;
 
     fn url(&self, api_mode: &ApiMode) -> Result<String, LibError> {
         let base_url = match api_mode {
@@ -315,29 +300,6 @@ impl LocationFinderUnified for GetSplByIdRequest {
         };
 
         Ok(format!("{}/{}", base_url, self.id))
-    }
-
-    async fn send(&self, api_key: &str, api_mode: &ApiMode) -> Result<Self::Response, LibError> {
-        let client = reqwest::Client::new();
-        let res_bytes = client
-            .get(self.url(api_mode)?)
-            .header("DHL-API-Key", api_key)
-            .send()
-            .await?
-            .bytes()
-            .await?;
-
-        if let Ok(v) = serde_json::from_slice::<GetSplResponseNotOk>(&res_bytes) {
-            return Err(LibError::GetSplResponseNotOk {
-                status: v.status,
-                title: v.title,
-                detail: v.detail,
-            });
-        }
-
-        let res = serde_json::from_slice::<GetSplResponse>(&res_bytes)?;
-
-        Ok(res)
     }
 }
 
@@ -589,17 +551,26 @@ pub enum ServiceType {
     Parking,
 }
 
+/// Two-letter country codes (https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum CountryCode {
+    Ad, // Andorra
     Ae, // United Arab Emirates
     Af, // Afghanistan
+    Ag, // Antigua and Barbuda
+    Ai, // Anguilla
     Al, // Albania
     Am, // Armenia
     Ao, // Angola
+    Aq, // Antarctica
     Ar, // Argentina
+    As, // American Samoa
     At, // Austria
     Au, // Australia
+    Aw, // Aruba
+    Ax, // Åland Islands
+    Az, // Azerbaijan
     Ba, // Bosnia and Herzegovina
     Bb, // Barbados
     Bd, // Bangladesh
@@ -607,50 +578,79 @@ pub enum CountryCode {
     Bf, // Burkina Faso
     Bg, // Bulgaria
     Bh, // Bahrain
+    Bi, // Burundi
     Bj, // Benin
+    Bl, // Saint Barthélemy
     Bm, // Bermuda
     Bn, // Brunei Darussalam
-    Bo, // Bolivia
+    Bo, // Bolivia (Plurinational State of)
+    Bq, // Bonaire, Sint Eustatius and Saba
     Br, // Brazil
     Bs, // Bahamas
     Bt, // Bhutan
+    Bv, // Bouvet Island
     Bw, // Botswana
     By, // Belarus
+    Bz, // Belize
     Ca, // Canada
+    Cc, // Cocos (Keeling) Islands
+    Cd, // Congo, Democratic Republic of the
+    Cf, // Central African Republic
     Cg, // Congo
     Ch, // Switzerland
     Ci, // Côte d'Ivoire
     Ck, // Cook Islands
     Cl, // Chile
+    Cm, // Cameroon
     Cn, // China
     Co, // Colombia
     Cr, // Costa Rica
+    Cu, // Cuba
     Cv, // Cabo Verde
+    Cw, // Curaçao
+    Cx, // Christmas Island
     Cy, // Cyprus
     Cz, // Czechia
     De, // Germany
+    Dj, // Djibouti
     Dk, // Denmark
+    Dm, // Dominica
     Do, // Dominican Republic
     Dz, // Algeria
     Ec, // Ecuador
     Ee, // Estonia
     Eg, // Egypt
+    Eh, // Western Sahara
+    Er, // Eritrea
     Es, // Spain
     Et, // Ethiopia
     Fi, // Finland
     Fj, // Fiji
+    Fk, // Falkland Islands (Malvinas)
+    Fm, // Micronesia (Federated States of)
+    Fo, // Faroe Islands
     Fr, // France
+    Ga, // Gabon
     Gb, // United Kingdom of Great Britain and Northern Ireland
+    Gd, // Grenada
     Ge, // Georgia
     Gf, // French Guiana
     Gg, // Guernsey
     Gh, // Ghana
+    Gi, // Gibraltar
+    Gl, // Greenland
     Gm, // Gambia
+    Gn, // Guinea
     Gp, // Guadeloupe
+    Gq, // Equatorial Guinea
     Gr, // Greece
+    Gs, // South Georgia and the South Sandwich Islands
     Gt, // Guatemala
+    Gu, // Guam
     Gw, // Guinea-Bissau
+    Gy, // Guyana
     Hk, // Hong Kong
+    Hm, // Heard Island and McDonald Islands
     Hn, // Honduras
     Hr, // Croatia
     Ht, // Haiti
@@ -658,9 +658,11 @@ pub enum CountryCode {
     Id, // Indonesia
     Ie, // Ireland
     Il, // Israel
+    Im, // Isle of Man
     In, // India
+    Io, // British Indian Ocean Territory
     Iq, // Iraq
-    Ir, // Iran
+    Ir, // Iran (Islamic Republic of)
     Is, // Iceland
     It, // Italy
     Je, // Jersey
@@ -672,23 +674,30 @@ pub enum CountryCode {
     Kh, // Cambodia
     Ki, // Kiribati
     Km, // Comoros
-    Kp, // North Korea
-    Kr, // South Korea
-    Kv, // Kosovo
+    Kn, // Saint Kitts and Nevis
+    Kp, // Korea (Democratic People's Republic of)
+    Kr, // Korea, Republic of
     Kw, // Kuwait
     Ky, // Cayman Islands
     Kz, // Kazakhstan
-    La, // Laos
+    La, // Lao People's Democratic Republic
     Lb, // Lebanon
+    Lc, // Saint Lucia
+    Li, // Liechtenstein
     Lk, // Sri Lanka
     Lr, // Liberia
     Ls, // Lesotho
     Lt, // Lithuania
     Lu, // Luxembourg
     Lv, // Latvia
+    Ly, // Libya
     Ma, // Morocco
-    Md, // Moldova
+    Mc, // Monaco
+    Md, // Moldova, Republic of
+    Me, // Montenegro
+    Mf, // Saint Martin (French part)
     Mg, // Madagascar
+    Mh, // Marshall Islands
     Mk, // North Macedonia
     Ml, // Mali
     Mm, // Myanmar
@@ -697,6 +706,7 @@ pub enum CountryCode {
     Mp, // Northern Mariana Islands
     Mq, // Martinique
     Mr, // Mauritania
+    Ms, // Montserrat
     Mt, // Malta
     Mu, // Mauritius
     Mv, // Maldives
@@ -706,6 +716,8 @@ pub enum CountryCode {
     Mz, // Mozambique
     Na, // Namibia
     Nc, // New Caledonia
+    Ne, // Niger
+    Nf, // Norfolk Island
     Ng, // Nigeria
     Ni, // Nicaragua
     Nl, // Netherlands
@@ -722,14 +734,18 @@ pub enum CountryCode {
     Ph, // Philippines
     Pk, // Pakistan
     Pl, // Poland
+    Pm, // Saint Pierre and Miquelon
+    Pn, // Pitcairn
     Pr, // Puerto Rico
+    Ps, // Palestine, State of
     Pt, // Portugal
+    Pw, // Palau
     Py, // Paraguay
     Qa, // Qatar
     Re, // Réunion
     Ro, // Romania
     Rs, // Serbia
-    Ru, // Russian
+    Ru, // Russian Federation
     Rw, // Rwanda
     Sa, // Saudi Arabia
     Sb, // Solomon Islands
@@ -737,37 +753,53 @@ pub enum CountryCode {
     Sd, // Sudan
     Se, // Sweden
     Sg, // Singapore
+    Sh, // Saint Helena, Ascension and Tristan da Cunha
     Si, // Slovenia
+    Sj, // Svalbard and Jan Mayen
     Sk, // Slovakia
     Sl, // Sierra Leone
+    Sm, // San Marino
     Sn, // Senegal
+    So, // Somalia
+    Sr, // Suriname
     Ss, // South Sudan
+    St, // Sao Tome and Principe
     Sv, // El Salvador
+    Sx, // Sint Maarten (Dutch part)
     Sy, // Syrian Arab Republic
     Sz, // Eswatini
+    Tc, // Turks and Caicos Islands
+    Td, // Chad
+    Tf, // French Southern Territories
     Tg, // Togo
     Th, // Thailand
+    Tj, // Tajikistan
+    Tk, // Tokelau
     Tl, // Timor-Leste
+    Tm, // Turkmenistan
     Tn, // Tunisia
     To, // Tonga
     Tr, // Turkey
     Tt, // Trinidad and Tobago
     Tv, // Tuvalu
-    Tw, // Taiwan
-    Tz, // Tanzania
+    Tw, // Taiwan, Province of China
+    Tz, // Tanzania, United Republic of
     Ua, // Ukraine
     Ug, // Uganda
+    Um, // United States Minor Outlying Islands
     Us, // United States of America
     Uy, // Uruguay
     Uz, // Uzbekistan
-    Ve, // Venezuela
-    Vg, // Virgin Islands
-    Vi, // Virgin Islands
+    Va, // Holy See
+    Vc, // Saint Vincent and the Grenadines
+    Ve, // Venezuela (Bolivarian Republic of)
+    Vg, // Virgin Islands (British)
+    Vi, // Virgin Islands (U.S.)
     Vn, // Viet Nam
     Vu, // Vanuatu
+    Wf, // Wallis and Futuna
     Ws, // Samoa
-    Xc, // Ceuta
-    Xm, // Montenegro
+    Ye, // Yemen
     Yt, // Mayotte
     Za, // South Africa
     Zm, // Zambia
