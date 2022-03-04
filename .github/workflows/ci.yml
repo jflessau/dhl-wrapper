@@ -19,8 +19,8 @@ jobs:
             token: ${{ secrets.TELEGRAM_TOKEN }}
             args: 🚚🔨 GitHub actions started CI jobs for dhl-wrapper.
 
-  check_formatting:
-    name: Check Formatting
+  formatting:
+    name: Formatting
     runs-on: ubuntu-latest
     steps:
       - name: checkout
@@ -37,7 +37,7 @@ jobs:
           cargo fmt --all -- --check
 
   clippy:
-    name: Run Clippy
+    name: Clippy
     runs-on: ubuntu-latest
     steps:
       - name: checkout
@@ -54,9 +54,9 @@ jobs:
           cargo clippy -- --D warnings
 
   test:
-    name: Run Tests
+    name: Test
     runs-on: ubuntu-latest
-    needs: [check_formatting, clippy]
+    needs: [formatting, clippy]
     steps:
       - name: checkout
         uses: actions/checkout@master
@@ -75,7 +75,7 @@ jobs:
     name: Telegram Message on CI Success
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    needs: [test_library, test_doc]
+    needs: [test]
     steps:
       - name: Send Telegram Notification
         uses: appleboy/telegram-action@master
