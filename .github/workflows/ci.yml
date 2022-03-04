@@ -1,0 +1,85 @@
+name: CI
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  telegram_message_ci_start:
+      name: Telegram Message on CI Start
+      runs-on: ubuntu-latest
+      steps:
+        - name: send message
+          uses: appleboy/telegram-action@master
+          with:
+            to: ${{ secrets.TELEGRAM_TO }}
+            token: ${{ secrets.TELEGRAM_TOKEN }}
+            args: 🚚🔨 GitHub actions started CI jobs for dhl-wrapper.
+
+  check_formatting:
+    name: Check Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@master
+      - name: install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          components: rustfmt
+          override: true
+      - name: cargo fmt
+        run: |
+          cargo fmt --all -- --check
+
+  clippy:
+    name: Run Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@master
+      - name: install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly
+          components: clippy
+          override: true
+      - name: cargo clippy
+        run: |
+          cargo clippy -- --D warnings
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: [check_formatting, clippy]
+    steps:
+      - name: checkout
+        uses: actions/checkout@master
+      - name: install rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - name: cargo test
+        run: |
+          cargo test
+          cargo test --doc
+
+  telegram_build_and_publish_notification:
+    name: Telegram Message on CI Success
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: [test_library, test_doc]
+    steps:
+      - name: Send Telegram Notification
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_TO }}
+          token: ${{ secrets.TELEGRAM_TOKEN }}
+          args: 🐳 GitHub actions published image for dhl-wrapper.

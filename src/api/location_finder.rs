@@ -1,4 +1,4 @@
-use crate::error::Error as LibError;
+use crate::error::DhlError;
 use async_trait::async_trait;
 use chrono::NaiveTime;
 use convert_case::{Case, Casing};
@@ -6,26 +6,59 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-// API docs: https://developer.dhl.com/api-reference/location-finder#reference-docs-section
-
-pub struct LocationFinderUnifiedApi {
+/// API struct for calling DHL's "Location Finder - Unified" API.
+pub struct LocationFinderApi {
     api_mode: ApiMode,
     api_key: String,
 }
 
+/// The ApiMode decides which base URL will be called.
+/// DHL offers a production and a sandbox API
+/// for their "Location Finder - Unified" API.
 pub enum ApiMode {
     Sandbox,
     Production,
 }
 
-impl LocationFinderUnifiedApi {
+impl LocationFinderApi {
+    /// Create a new API.
+    ///
+    /// ```
+    /// # use dhl_wrapper::api::location_finder::*;
+    /// let api = LocationFinderApi::new(
+    ///     ApiMode::Production,
+    ///     "muchsecretwow".to_string()
+    /// );
+    /// ```
     pub fn new(api_mode: ApiMode, api_key: String) -> Self {
-        LocationFinderUnifiedApi { api_mode, api_key }
+        LocationFinderApi { api_mode, api_key }
     }
 
-    pub async fn send<T>(&self, request: T) -> Result<T::Response, LibError>
+    /// Use the API to send a request.
+    ///
+    /// ```
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let api_key = "muchsecretwow".to_string();
+    ///
+    ///     # use dhl_wrapper::api::location_finder::*;
+    ///     # use dotenv::dotenv;
+    ///     # use tokio::time::{sleep, Duration};
+    ///     # dotenv().ok();
+    ///     # let api_key = dotenv::var("DHL_LOCATION_FINDER_API_KEY").expect("DHL_LOCATION_FINDER_API_KEY");
+    ///
+    ///     let api = LocationFinderApi::new(ApiMode::Production, api_key);
+    ///
+    ///     // Get service point locations by address
+    ///     let request = GetLocationsByGeo::new(53.575264, 9.954053);
+    ///
+    ///     # sleep(Duration::from_secs(3)).await;  
+    ///     api.send(request).await.unwrap();
+    /// }
+    /// ```
+    pub async fn send<T>(&self, request: T) -> Result<T::Response, DhlError>
     where
-        T: LocationFinderUnifiedRequest,
+        T: LocationFinderRequest,
         T::Response: DeserializeOwned,
     {
         let client = reqwest::Client::new();
@@ -38,7 +71,7 @@ impl LocationFinderUnifiedApi {
             .await?;
 
         if let Ok(v) = serde_json::from_slice::<ResponseNotOk>(&res_bytes) {
-            return Err(LibError::ResponseNotOk {
+            return Err(DhlError::ResponseNotOk {
                 status: v.status,
                 title: v.title,
                 detail: v.detail,
@@ -51,13 +84,17 @@ impl LocationFinderUnifiedApi {
     }
 }
 
+/// A trait all request structs must implement in order to
+/// be sent via the [LocationFinderApi](LocationFinderApi).
 #[async_trait]
-pub trait LocationFinderUnifiedRequest {
+pub trait LocationFinderRequest {
     type Response;
 
-    fn url(&self, api_mode: &ApiMode) -> Result<String, LibError>;
+    fn url(&self, api_mode: &ApiMode) -> Result<String, DhlError>;
 }
 
+/// In case DHL responds with a 4xx or 5xx status code, the response will
+/// deserialized to this struct.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResponseNotOk {
     status: i64,
@@ -65,9 +102,10 @@ pub struct ResponseNotOk {
     detail: String,
 }
 
+/// Parameters of the GET request returning service point locations by address.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GetSplsByAddressRequest {
+pub struct GetLocationsByAddress {
     country_code: CountryCode,
     address_locality: Option<String>,
     postal_code: Option<String>,
@@ -80,9 +118,9 @@ pub struct GetSplsByAddressRequest {
     hide_closed_locations: Option<bool>,
 }
 
-impl GetSplsByAddressRequest {
+impl GetLocationsByAddress {
     pub fn new(country_code: CountryCode) -> Self {
-        GetSplsByAddressRequest {
+        GetLocationsByAddress {
             country_code,
             address_locality: None,
             postal_code: None,
@@ -152,10 +190,10 @@ impl GetSplsByAddressRequest {
 }
 
 #[async_trait]
-impl LocationFinderUnifiedRequest for GetSplsByAddressRequest {
-    type Response = GetSplsResponse;
+impl LocationFinderRequest for GetLocationsByAddress {
+    type Response = GetLocationsResponse;
 
-    fn url(&self, api_mode: &ApiMode) -> Result<String, LibError> {
+    fn url(&self, api_mode: &ApiMode) -> Result<String, DhlError> {
         let base_url = match api_mode {
             ApiMode::Sandbox => "https://api-sandbox.dhl.com/location-finder/v1/find-by-address",
             ApiMode::Production => "https://api.dhl.com/location-finder/v1/find-by-address",
@@ -167,9 +205,10 @@ impl LocationFinderUnifiedRequest for GetSplsByAddressRequest {
     }
 }
 
+/// Parameters of the GET request returning service point locations by coordinates.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GetSplsByGeoRequest {
+pub struct GetLocationsByGeo {
     latitude: f64,
     longitude: f64,
     provider_type: Option<ProviderType>,
@@ -180,9 +219,9 @@ pub struct GetSplsByGeoRequest {
     hide_closed_locations: Option<bool>,
 }
 
-impl GetSplsByGeoRequest {
+impl GetLocationsByGeo {
     pub fn new(latitude: f64, longitude: f64) -> Self {
-        GetSplsByGeoRequest {
+        GetLocationsByGeo {
             latitude,
             longitude,
             provider_type: None,
@@ -232,10 +271,10 @@ impl GetSplsByGeoRequest {
 }
 
 #[async_trait]
-impl LocationFinderUnifiedRequest for GetSplsByGeoRequest {
-    type Response = GetSplsResponse;
+impl LocationFinderRequest for GetLocationsByGeo {
+    type Response = GetLocationsResponse;
 
-    fn url(&self, api_mode: &ApiMode) -> Result<String, LibError> {
+    fn url(&self, api_mode: &ApiMode) -> Result<String, DhlError> {
         let base_url = match api_mode {
             ApiMode::Sandbox => "https://api-sandbox.dhl.com/location-finder/v1/find-by-geo",
             ApiMode::Production => "https://api.dhl.com/location-finder/v1/find-by-geo",
@@ -245,17 +284,18 @@ impl LocationFinderUnifiedRequest for GetSplsByGeoRequest {
     }
 }
 
+/// Parameters of the GET request returning a service point location by keyword id.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GetSplByKeywordIdRequest {
+pub struct GetLocationByKeywordId {
     keyword_id: String,
     country_code: CountryCode,
     postal_code: String,
 }
 
-impl GetSplByKeywordIdRequest {
+impl GetLocationByKeywordId {
     pub fn new(keyword_id: String, country_code: CountryCode, postal_code: String) -> Self {
-        GetSplByKeywordIdRequest {
+        GetLocationByKeywordId {
             keyword_id,
             country_code,
             postal_code,
@@ -264,10 +304,10 @@ impl GetSplByKeywordIdRequest {
 }
 
 #[async_trait]
-impl LocationFinderUnifiedRequest for GetSplByKeywordIdRequest {
-    type Response = GetSplResponse;
+impl LocationFinderRequest for GetLocationByKeywordId {
+    type Response = GetLocationResponse;
 
-    fn url(&self, api_mode: &ApiMode) -> Result<String, LibError> {
+    fn url(&self, api_mode: &ApiMode) -> Result<String, DhlError> {
         let base_url = match api_mode {
             ApiMode::Sandbox => "https://api-sandbox.dhl.com/location-finder/v1/find-by-keyword-id",
             ApiMode::Production => "https://api.dhl.com/location-finder/v1/find-by-keyword-id",
@@ -277,23 +317,24 @@ impl LocationFinderUnifiedRequest for GetSplByKeywordIdRequest {
     }
 }
 
+/// Parameters of the GET request returning a service point location by id.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GetSplByIdRequest {
+pub struct GetLocationById {
     id: String,
 }
 
-impl GetSplByIdRequest {
+impl GetLocationById {
     pub fn new(id: String) -> Self {
-        GetSplByIdRequest { id }
+        GetLocationById { id }
     }
 }
 
 #[async_trait]
-impl LocationFinderUnifiedRequest for GetSplByIdRequest {
-    type Response = GetSplResponse;
+impl LocationFinderRequest for GetLocationById {
+    type Response = GetLocationResponse;
 
-    fn url(&self, api_mode: &ApiMode) -> Result<String, LibError> {
+    fn url(&self, api_mode: &ApiMode) -> Result<String, DhlError> {
         let base_url = match api_mode {
             ApiMode::Sandbox => "https://api-sandbox.dhl.com/location-finder/v1/locations",
             ApiMode::Production => "https://api.dhl.com/location-finder/v1/locations",
@@ -303,7 +344,8 @@ impl LocationFinderUnifiedRequest for GetSplByIdRequest {
     }
 }
 
-pub fn serializable_to_url_params<T: Serialize>(serializable: &T) -> Result<String, LibError> {
+/// Serializes a struct's fields into a string of url parameters.
+fn serializable_to_url_params<T: Serialize>(serializable: &T) -> Result<String, DhlError> {
     let value = serde_json::to_value(serializable)?;
 
     let mut params = Vec::new();
@@ -333,7 +375,7 @@ pub fn serializable_to_url_params<T: Serialize>(serializable: &T) -> Result<Stri
 
         let mut query = String::new();
         if !params.is_empty() {
-            query.push_str("?");
+            query.push('?');
         }
 
         for param in params {
@@ -346,15 +388,17 @@ pub fn serializable_to_url_params<T: Serialize>(serializable: &T) -> Result<Stri
     Ok(String::new())
 }
 
+/// A struct representing a successful response holding a list of service point locations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GetSplsResponse {
+pub struct GetLocationsResponse {
     pub locations: Vec<ServicePoint>,
 }
 
+/// A struct representing a successful response holding one service point location.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GetSplResponse {
+pub struct GetLocationResponse {
     pub url: String,
     pub location: ServicePointLocation,
     pub name: String,
@@ -365,12 +409,15 @@ pub struct GetSplResponse {
     pub average_capacity_day_of_week: Vec<WeekdayCapacity>,
 }
 
+/// The capacity of a service point by weekday.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WeekdayCapacity {
     pub day_of_week: Weekday,
     pub capacity: Capacity,
 }
 
+/// Capacity of a service point location.
+/// Can be found in [WeekdayCapacity](WeekdayCapacity).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Capacity {
     #[serde(alias = "very-low")]
@@ -382,6 +429,7 @@ pub enum Capacity {
     // TODO - see if there are more variants
 }
 
+/// A service point.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ServicePoint {
@@ -394,6 +442,7 @@ pub struct ServicePoint {
     pub closure_periods: Vec<String>, // TODO - docs say nothing about the format
 }
 
+/// The location of a service point.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ServicePointLocation {
@@ -404,6 +453,7 @@ pub struct ServicePointLocation {
     pub lean_locker: Option<bool>,
 }
 
+/// The id of a service point location.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ServicePointLocationId {
@@ -411,6 +461,7 @@ pub struct ServicePointLocationId {
     pub provider: String,
 }
 
+/// A place specified by an address and geo coordinates.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Place {
@@ -418,6 +469,7 @@ pub struct Place {
     pub geo: Geo,
 }
 
+/// A simple address.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Address {
@@ -427,6 +479,7 @@ pub struct Address {
     pub street_address: String,
 }
 
+/// Geo coordinates.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Geo {
@@ -434,6 +487,7 @@ pub struct Geo {
     pub longitude: f64,
 }
 
+/// Opening hours of a service point.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpeningHours {
@@ -442,6 +496,7 @@ pub struct OpeningHours {
     pub day_of_week: Weekday,
 }
 
+/// A provider type.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ProviderType {
@@ -449,6 +504,7 @@ pub enum ProviderType {
     Express,
 }
 
+/// The type of a service point location.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LocationType {
@@ -458,6 +514,10 @@ pub enum LocationType {
     Postbank,
 }
 
+/// An enum representing weekdays.
+/// Note that all weekdays have two [serde aliases](https://serde.rs/field-attrs.html#alias), because some
+/// responses from DHL's APIs return a link to schema.org like `http://schema.org/Monday`,
+/// while others return just a string containing e.g. `Monday`. ¯\\\_(ツ)\_/¯
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Weekday {
     #[serde(alias = "http://schema.org/Monday", alias = "Monday")]
@@ -476,14 +536,7 @@ pub enum Weekday {
     Sun,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetSplResponseNotOk {
-    pub status: i64,
-    pub title: String,
-    pub detail: String,
-}
-
+/// DHL service devisions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Devisions {
@@ -492,6 +545,7 @@ pub enum Devisions {
     Express,
 }
 
+/// DHL service service types.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ServiceType {
     #[serde(alias = "parcel:pick-up", rename = "parcel:pick-up")]
@@ -551,7 +605,7 @@ pub enum ServiceType {
     Parking,
 }
 
-/// Two-letter country codes (https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)
+/// Two-letter country codes (<https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2>).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum CountryCode {

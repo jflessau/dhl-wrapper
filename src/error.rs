@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum Error {
+pub enum DhlError {
     #[error("MissingCredentials Error: {0}")]
     MissingCredentials(String),
     #[error("ResponseNotOk (status {status:?}, title {title:?}, detail {detail:?})")]
