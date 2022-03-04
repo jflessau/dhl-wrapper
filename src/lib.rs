@@ -8,17 +8,15 @@
 //! # Example
 //!
 //! ```
-//! // Create API
 //! #[tokio::main]
 //! async fn main() {
+//!     // Create API
 //!     let api_key = "muchsecretwow".to_string();
-//!     
 //!     # use dhl_wrapper::api::location_finder::*;
 //!     # use dotenv::dotenv;
 //!     # use tokio::time::{sleep, Duration};
 //!     # dotenv().ok();
 //!     # let api_key = dotenv::var("DHL_LOCATION_FINDER_API_KEY").expect("DHL_LOCATION_FINDER_API_KEY");
-//!     
 //!     let api = LocationFinderApi::new(ApiMode::Production, api_key);
 //!     
 //!     // Get service point locations by address

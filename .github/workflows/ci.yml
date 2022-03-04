@@ -70,7 +70,6 @@ jobs:
         run: |
           export DHL_LOCATION_FINDER_API_KEY=${{ secrets.DHL_LOCATION_FINDER_API_KEY }} 
           cargo test
-          cargo test --doc
 
   telegram_build_and_publish_notification:
     name: CI Success Notification
@@ -83,4 +82,4 @@ jobs:
         with:
           to: ${{ secrets.TELEGRAM_TO }}
           token: ${{ secrets.TELEGRAM_TOKEN }}
-          args: 🐳 GitHub actions published image for dhl-wrapper.
+          args: 🐳 GitHub actions completed checks for dhl-wrapper.
