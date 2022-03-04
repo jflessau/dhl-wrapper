@@ -9,7 +9,7 @@ on:
 
 jobs:
   telegram_message_ci_start:
-      name: Telegram Message on CI Start
+      name: CI Start Notification
       runs-on: ubuntu-latest
       steps:
         - name: send message
@@ -68,11 +68,12 @@ jobs:
           override: true
       - name: cargo test
         run: |
+          export DHL_LOCATION_FINDER_API_KEY=${{ secrets.DHL_LOCATION_FINDER_API_KEY }} 
           cargo test
           cargo test --doc
 
   telegram_build_and_publish_notification:
-    name: Telegram Message on CI Success
+    name: CI Success Notification
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: [test]
