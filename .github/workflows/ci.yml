@@ -68,7 +68,9 @@ jobs:
           override: true
       - name: cargo test
         run: |
-          export DHL_LOCATION_FINDER_API_KEY=${{ secrets.DHL_LOCATION_FINDER_API_KEY }} 
+          export LOCATION_FINDER_API_KEY=${{ secrets.LOCATION_FINDER_API_KEY }} 
+          export SHIPMENT_TRACKING_API_KEY=${{ secrets.SHIPMENT_TRACKING_API_KEY }} 
+          export VALID_SHIPMENT_TRACKING_NUMBERS=${{ secrets.VALID_SHIPMENT_TRACKING_NUMBERS }} 
           cargo test
 
   telegram_build_and_publish_notification:

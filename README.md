@@ -6,9 +6,24 @@ Rust wrapper for [DHL APIs](https://developer.dhl.com/).
 
 ## Implemented APIs
 
+### Shipment Tracking - Unified
+
+Track shipments by providing a tracking number.
+
+#### Example:
+
+```rust
+let api = ShipmentTrackingApi::new("your_api_key");
+
+let request = GetShipmentTracking::new("your_tracking_number");
+let response = api.send(request).await.unwrap();
+```
+
 ### Location Finder - Unified
 
-Example:
+Find DHL service points around the globe.
+
+#### Example:
 
 ```rust
 let api = LocationFinderApi::new(
@@ -16,48 +31,32 @@ let api = LocationFinderApi::new(
   "your_api_key".to_string()
 );
 
-sleep(Duration::from_secs(1)).await;
-let req = GetLocationsByGeo::new(53.575264, 9.954053);
-let res = api.send(req).await.unwrap();
+let request = GetLocationsByGeo::new(53.575264, 9.954053);
+let response = api.send(request).await.unwrap();
 ```
 
-## Table of all DHL APIs
+## List of DHL APIs
 
-DHL maintains a list of their APIs here: [https://developer.dhl.com/api-catalog](https://developer.dhl.com/api-catalog)
+Official list of DHL APIs: [https://developer.dhl.com/api-catalog](https://developer.dhl.com/api-catalog)
 
-| Name                                               | Implemented | Implementation planned |
-| -------------------------------------------------- | ----------- | ---------------------- |
-| Location Finder - Unified                          | ✅          | `yes`                  |
-| Shipment Tracking - Unified                        | 🚫          | `yes`                  |
-| Shipment Booking (DHL Global Forwarding)           | 🚫          | `not sure`             |
-| Shipment Label (DHL Global Forwarding)             | 🚫          | `not sure`             |
-| Shipment Status (DHL Global Forwarding)            | 🚫          | `not sure`             |
-| Shipment Tracking (DHL Global Forwarding)          | 🚫          | `not sure`             |
-| Deutsche Post Inernational (Post & Parcel Germany) | 🚫          | `not sure`             |
-| DHL eCommerce Solutions Europe                     | 🚫          | `not sure`             |
-| DHL Express - MyDHL API                            | 🚫          | `not sure`             |
-| Parcel EU (BE-ES-LU-NL-PT)                         | 🚫          | `not sure`             |
-| Parcel UK                                          | 🚫          | `not sure`             |
-| Push API (DHL Global Forwarding)                   | 🚫          | `not sure`             |
-| Shipment Label (DHL Global Forwarding)             | 🚫          | `not sure`             |
-| DHL Express Security API                           | 🚫          | `not sure`             |
-| DHL Smart Trucking API                             | 🚫          | `not sure`             |
-| Document (DHL Global Forwarding)                   | 🚫          | `not sure`             |
-| Fleet Management Supplier API                      | 🚫          | `not sure`             |
-| Number Management (Post & Parcel Germany)          | 🚫          | `not sure`             |
-| Parcel DE Customer Shipping Event                  | 🚫          | `not sure`             |
-| Parcel DE Shipping (Post & Parcel Germany)         | 🚫          | `not sure`             |
-| Parcel DE Tracking (Post & Parcel Germany)         | 🚫          | `not sure`             |
-| Transportation Management (DHL Supply Chain)       | 🚫          | `not sure`             |
-| Track and Trace (DHL Supply Chain)                 | 🚫          | `not sure`             |
-| Warehouse Management (DHL Supply Chain)            | 🚫          | `not sure`             |
-| Duty and Tax Calculator                            | 🚫          | `not sure`             |
+Subset of that list and the status of the respective implementation:
+
+| Name                                      | Implemented | Implementation planned |
+| ----------------------------------------- | ----------- | ---------------------- |
+| Shipment Tracking - Unified               | ✅          |                        |
+| Location Finder - Unified                 | ✅          |                        |
+| Shipment Booking (DHL Global Forwarding)  | 🚫          | `yes`                  |
+| Shipment Label (DHL Global Forwarding)    | 🚫          | `yes`                  |
+| Shipment Status (DHL Global Forwarding)   | 🚫          | `yes`                  |
+| Shipment Tracking (DHL Global Forwarding) | 🚫          | `probably`             |
+| Track and Trace (DHL Supply Chain)        | 🚫          | `probably`             |
+| Push API (DHL Global Forwarding)          | 🚫          | `probably`             |
 
 ## Development
 
-1. Go to [https://developer.dhl.com/api-catalog](https://developer.dhl.com/api-catalog), select an API you want to use and create a developer account to get an API key.
-2. Rename `.example-env` to `.env` and insert your API key.
-3. Done.
+1. Go to [https://developer.dhl.com/api-catalog](https://developer.dhl.com/api-catalog)
+2. Select APIs you want to use and create a developer account to get API keys.
+3. Rename `.example-env` to `.env` and insert your API keys.
 
 Happy hacking!
 

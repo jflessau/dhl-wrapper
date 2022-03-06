@@ -1,12 +1,13 @@
 use thiserror::Error;
 
+/// Custom Error representing what could go wrong when building requests and calling APIs.
 #[derive(Error, Debug)]
 pub enum DhlError {
     #[error("MissingCredentials Error: {0}")]
     MissingCredentials(String),
     #[error("ResponseNotOk (status {status:?}, title {title:?}, detail {detail:?})")]
     ResponseNotOk {
-        status: i64,
+        status: u32,
         title: String,
         detail: String,
     },

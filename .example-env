@@ -1,1 +1,5 @@
-DHL_LOCATION_FINDER_API_KEY=muchsecretwow
+LOCATION_FINDER_API_KEY=muchsecretwow
+SHIPMENT_TRACKING_API_KEY=muchsecretwow
+
+# for tests
+VALID_SHIPMENT_TRACKING_NUMBERS=tracking_number_here,another_tracking_number_here,put_in_as_many_as_you_want
